@@ -1,39 +1,41 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-int scanRecords(char total_input[],char *firstname[],char* lastname[],double meetingtime [] );
-void printRecords(char total_output[],char *firstname[], char *lastname[],double meetingtime [], double givenDuration, int numberOfLine);
-void insertionSort(char *firstname[], char *lastname[],double meetingtime [],int numberOfLines);
+typedef  struct
+{
+    char name[50];
+    char surname[50];
+    double attendenceduration;
+} student;
+int scanStudent(char inputFile[], student studentsp[]);
+int loadStudents(student students[],double duration, int numOfStudents,char firstname[],char lastname[]);
+void writeStudentsOnFile(char outputFile[],  student students[],double givenDuration, int numOfStudents);
+void insertionSort(student students[],int numberOfLines);
 
 int main(int arg1, char *arg2[]) //char *argi[],char* argo[],int minDuration,char*disp[]
 {
     int scan_status;
-    double meetingtime[500];//in terms of minutes
-    int numberOfLines=0;
-    char *firstname[500];
-    char *surname[500];
-
-    numberOfLines= scanRecords(arg2[1],firstname,surname,meetingtime);
+    student students[500];
+    int numOfStudents=0;
+    numOfStudents= scanStudent(arg2[1],students);
     if(arg2[4]!= NULL)
     {
         if(strcmp(arg2[4],"sorted")==0)
         {
-            insertionSort(firstname,surname,meetingtime,numberOfLines);
+            insertionSort(students,numOfStudents);
         }
     }
-
-    printRecords(arg2[2],firstname,surname,meetingtime,atof(arg2[3]),numberOfLines);
+    writeStudentsOnFile(arg2[2],students,atof(arg2[3]),numOfStudents);
     return 0;
 }
-
-int scanRecords(char total_input[30],char *firstname[],char *surname[],double meetingtime[])
+int scanStudent(char inputFile[], student studentsp[])
 {
     char newLine[500];
     char name[500];
     char firname[500];
-    char lastname[500];
-    //char copy [700];
+    char yeniname[500];
+    char namecpy [200];
+    int found =0;
     char passedtime[700];
     char garbage[600];
     char * firstpart_delimeter;
@@ -41,122 +43,121 @@ int scanRecords(char total_input[30],char *firstname[],char *surname[],double me
     char * inputstatus;
     double zoomtime;
     int scancounter=0;
-    FILE* inputfile = fopen(total_input,"r");
-    fgets(garbage,500,inputfile); // get first line as a garbage.
-    for(inputstatus=fgets(newLine,700,inputfile); inputstatus!=0 ; inputstatus=fgets(newLine,700,inputfile))
-    {
-        printf("dosya okunuyor");
+    FILE* students_record = fopen(inputFile,"r");
+    fgets(garbage,500,students_record);
 
-        splittedtext= strtok(newLine,",");
-        strcpy(name,splittedtext);// Copy the hole Text Before the Comma","
+    while(fscanf(students_record,"%[^\n] ",newLine)!=EOF)
+    {
+        char * firstpart_delimeter2;
+        char lastname[500];
+        char othername[500];
+        char surname[500];
+        int spacecounter=0;
+        splittedtext= strtok(newLine,","); //
+        strcpy(name,splittedtext);
+
         while(splittedtext!=NULL)
         {
             strcpy(passedtime,splittedtext);
             splittedtext= strtok(NULL,",");
-
-            if(splittedtext==NULL)
-            {
-                zoomtime = atof(passedtime);
-            }
         }
         zoomtime = atof(passedtime);
-        firstpart_delimeter= strtok(name," "); // first string in the name part.
 
-        strcpy(firname,firstpart_delimeter); // first name; if we have 1 name and 1 surname;
-        firstpart_delimeter= strtok(NULL," ");
-
-        strcpy(lastname,firstpart_delimeter);
-        // now check if we have more text we should modify predetermined name and surname.
-        firstpart_delimeter= strtok(NULL," ");
-        if(firstpart_delimeter!=NULL)
+        /**splitting name*/
+        strcpy(namecpy,name);
+        firstpart_delimeter= strtok(name," ");
+        while(firstpart_delimeter!=NULL)
         {
-            strcat(firname," ");
-            strcat(firname,lastname);
             strcpy(lastname,firstpart_delimeter);
+            firstpart_delimeter=strtok(NULL," ");
+            spacecounter++;
         }
+        strcpy(surname,lastname);
+        firstpart_delimeter2=strtok(namecpy," ");
+        strcpy(firname,firstpart_delimeter2);
 
-        int found=0;
-        for(int j=0; j<scancounter; j++)
+        for(int i=0; i< spacecounter-2; i++)
         {
-            if(strcasecmp(firstname+scancounter,firname)==0 && strcasecmp(surname+scancounter,lastname)==0)
+            if(i==0)
             {
-                meetingtime[scancounter]+= zoomtime;
+                firstpart_delimeter2=strtok(NULL," ");
+                strcpy(othername,firstpart_delimeter2);
                 found=1;
+                strcat(firname," ");
+                strcat(firname,othername);
+            }
+            else
+            {
+                strcat(firname," ");
+                firstpart_delimeter2= strtok(NULL," ");
+                strcpy(yeniname,firstpart_delimeter2);
+                strcat(firname,yeniname);
             }
         }
-        if(found==0)
-        {
-            strcpy(firstname+scancounter,firname);
-            firstname[scancounter]=firname;
-            printf("%s",firstname[scancounter]);
-            strcpy(surname+scancounter,lastname);
-            surname[scancounter]=lastname;
-            printf("%s",surname[scancounter] );
-            meetingtime[scancounter]=zoomtime;
-            scancounter++;
-        }
+        scancounter=loadStudents(studentsp,zoomtime,scancounter,firname,surname);//lastname
     }
-    fclose(inputfile);
-    printf("%d",scancounter);
+    fclose(students_record);
     return scancounter;
 }
-void printRecords(char total_output[],char *firstname[], char *lastname[],double meetingtime[],double givenDuration, int numberOfLines)
+
+int loadStudents(student students[],double duration, int numOfStudents,char firstname[],char lastname[])
 {
-    printf("print records ici");
-    FILE* outputfile = fopen(total_output,"w");
-    for(int a=1; a< numberOfLines; a++)
+    int isFound=0;
+    for(int i=0; i<numOfStudents; i++)
     {
-        if(meetingtime[a]>=givenDuration)
+        if(strcasecmp(students[i].name,firstname)==0 && strcasecmp(students[i].surname,lastname)==0)
         {
-            fprintf(outputfile,"%s %s %2.lf \n",lastname[a],firstname[a],meetingtime[a]); //meetingtime[a]
+            students[i].attendenceduration += duration;
+            isFound=1;
         }
-
     }
-    fclose(outputfile);
-
+    if(isFound==0)
+    {
+        strcpy(students[numOfStudents].name,firstname);
+        strcpy(students[numOfStudents].surname,lastname);
+        students[numOfStudents].attendenceduration=duration;
+        numOfStudents++;
+    }
+    return numOfStudents;
 }
-void insertionSort(char *firstname[], char *lastname[],double meetingtime[],int numberOfLines)
+void writeStudentsOnFile(char outputFile[], student students [], double givenDuration, int numOfStudents) // pointerla yap
+{
+    FILE *student_record_output = fopen(outputFile,"w");
+    for(int j=0; j<numOfStudents; j++)
+    {
+        if(students[j].attendenceduration >= givenDuration)
+        {
+            fprintf(student_record_output,"%s %s %.2lf\n",students[j].surname,students[j].name,students[j].attendenceduration);
+            printf( "%s %s %.2lf\n",students[j].surname,students[j].name,students[j].attendenceduration);
+        }
+    }
+    fclose(student_record_output);
+}
+
+void insertionSort(student students[],int numberOfLines)
 {
     char *tempfirstname;
     char * templastname;
     double  tempd;
-    for(int i=numberOfLines; i>0; i--)
+    student temporary;
+    for(int i=0; i<numberOfLines; i++)
     {
-        for(int j=i; j<numberOfLines; j++)
+        for(int j=i+1; j<numberOfLines; j++)
         {
-            if(strcasecmp(lastname[j],lastname[j-1])<=-1)
+            if(strcasecmp(students[i].surname,students[j].surname)>0)
             {
-                tempfirstname= lastname[j];
-                firstname[j]=firstname[j-1];
-                firstname[j-1]=tempfirstname;
-                //////
-                templastname=lastname[j];
-                lastname[j]=lastname[j-1];
-                lastname[j-1]=templastname;
-                //////
-                tempd= meetingtime[j];
-                meetingtime[j]=meetingtime[j-1];
-                meetingtime[j-1]=tempd;
-
+                temporary= students[i];
+                students[i]= students[j];
+                students[j]=temporary;
             }
-            else if(strcasecmp(lastname[j],lastname[j-1])== 0 && strcasecmp(firstname[j],firstname[j-1])<= -1 )
+            else if(strcasecmp(students[i].surname,students[j].surname)== 0 && strcasecmp(students[i].name,students[j].name)>0)
+
             {
-                tempfirstname= lastname[j];
-                firstname[j]=firstname[j-1];
-                firstname[j-1]=tempfirstname;
-                //////
-                templastname=lastname[j];
-                lastname[j]=lastname[j-1];
-                lastname[j-1]=templastname;
-                //////
-                tempd= meetingtime[j];
-                meetingtime[j]=meetingtime[j-1];
-                meetingtime[j-1]=tempd;
-
-
+                temporary= students[i];
+                students[i]= students[j];
+                students[j]=temporary;
             }
-
         }
     }
-
 }
+
